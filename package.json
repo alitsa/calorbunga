@@ -1,0 +1,13 @@
+{
+  "name": "Calorbunga!",
+  "version": "001",
+  "description": "A daily calorie tracker for Litsa... and other vegans",
+  "main": "index.jsx",
+  "author": "Mostly Google Gemini, TBH",
+  "scripts": {
+    "start": "node index.jsx"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
