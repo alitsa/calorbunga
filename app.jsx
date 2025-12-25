@@ -39,48 +39,41 @@ import {
 // --- Firebase Configuration ---
 /**
  * Safely handle environment variables for both Preview and Heroku/Vite environments.
- * To avoid "import.meta" warnings in environments that don't support it,
- * we use a try-catch block to probe for the existence of the meta object.
+ * We avoid 'import.meta' directly to prevent ES2015 compatibility crashes.
  */
 const getFirebaseConfig = () => {
-  if (typeof __firebase_config !== 'undefined') {
+  // 1. Check for preview environment variable
+  if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     return JSON.parse(__firebase_config);
   }
 
-  try {
-    // Attempting to access import.meta via a dynamic property check
-    // to bypass static analysis warnings in some compilers.
-    const meta = (window as any).import?.meta || (globalThis as any).import?.meta;
-    const env = meta?.env;
-    if (env?.VITE_FIREBASE_CONFIG) {
-      return JSON.parse(env.VITE_FIREBASE_CONFIG);
-    }
-  } catch (e) {
-    // Fallback if import.meta is strictly forbidden/unavailable
-  }
+  // 2. Safely check for Vite/Heroku environment variables using global check
+  // This avoids syntax errors in older environments while supporting Vite
+  const globalEnv = (typeof window !== 'undefined' ? window : globalThis);
 
-  // Final fallback: check process.env (common in older bundlers/Heroku)
-  if (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_CONFIG) {
-    return JSON.parse(process.env.VITE_FIREBASE_CONFIG);
+  // Try to access VITE_FIREBASE_CONFIG via a string key to avoid compiler errors
+  const envConfig = globalEnv['process']?.env?.VITE_FIREBASE_CONFIG ||
+                    globalEnv['import']?.['meta']?.env?.VITE_FIREBASE_CONFIG;
+
+  if (envConfig) {
+    try {
+      return JSON.parse(envConfig);
+    } catch (e) {
+      console.error("Failed to parse VITE_FIREBASE_CONFIG");
+    }
   }
 
   return {};
 };
 
 const getAppId = () => {
-  if (typeof __app_id !== 'undefined') return __app_id;
+  if (typeof __app_id !== 'undefined' && __app_id) return __app_id;
 
-  try {
-    const meta = (window as any).import?.meta || (globalThis as any).import?.meta;
-    const env = meta?.env;
-    if (env?.VITE_APP_ID) return env.VITE_APP_ID;
-  } catch (e) {}
+  const globalEnv = (typeof window !== 'undefined' ? window : globalThis);
+  const id = globalEnv['process']?.env?.VITE_APP_ID ||
+             globalEnv['import']?.['meta']?.env?.VITE_APP_ID;
 
-  if (typeof process !== 'undefined' && process.env?.VITE_APP_ID) {
-    return process.env.VITE_APP_ID;
-  }
-
-  return 'permanent-christmas-food-diary-v1';
+  return id || 'calorbunga-default-v1';
 };
 
 const firebaseConfig = getFirebaseConfig();
