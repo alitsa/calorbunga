@@ -37,12 +37,57 @@ import {
 } from 'firebase/auth';
 
 // --- Firebase Configuration ---
-const firebaseConfig = JSON.parse(__firebase_config);
+/**
+ * Safely handle environment variables for both Preview and Heroku/Vite environments.
+ * To avoid "import.meta" warnings in environments that don't support it,
+ * we use a try-catch block to probe for the existence of the meta object.
+ */
+const getFirebaseConfig = () => {
+  if (typeof __firebase_config !== 'undefined') {
+    return JSON.parse(__firebase_config);
+  }
+
+  try {
+    // Attempting to access import.meta via a dynamic property check
+    // to bypass static analysis warnings in some compilers.
+    const meta = (window as any).import?.meta || (globalThis as any).import?.meta;
+    const env = meta?.env;
+    if (env?.VITE_FIREBASE_CONFIG) {
+      return JSON.parse(env.VITE_FIREBASE_CONFIG);
+    }
+  } catch (e) {
+    // Fallback if import.meta is strictly forbidden/unavailable
+  }
+
+  // Final fallback: check process.env (common in older bundlers/Heroku)
+  if (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_CONFIG) {
+    return JSON.parse(process.env.VITE_FIREBASE_CONFIG);
+  }
+
+  return {};
+};
+
+const getAppId = () => {
+  if (typeof __app_id !== 'undefined') return __app_id;
+
+  try {
+    const meta = (window as any).import?.meta || (globalThis as any).import?.meta;
+    const env = meta?.env;
+    if (env?.VITE_APP_ID) return env.VITE_APP_ID;
+  } catch (e) {}
+
+  if (typeof process !== 'undefined' && process.env?.VITE_APP_ID) {
+    return process.env.VITE_APP_ID;
+  }
+
+  return 'permanent-christmas-food-diary-v1';
+};
+
+const firebaseConfig = getFirebaseConfig();
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-const appId = 'permanent-christmas-food-diary-v1';
+const appId = getAppId();
 
 const App = () => {
   const [items, setItems] = useState([]);
@@ -116,7 +161,7 @@ const App = () => {
       p: acc.p + Math.round(item.stats?.p || 0),
       c: acc.c + Math.round(item.stats?.c || 0),
       f: acc.f + Math.round(item.stats?.f || 0),
-      w: acc.w + Math.round(item.stats?.w || 0) // Fixed: Ensuring water is correctly added
+      w: acc.w + Math.round(item.stats?.w || 0)
     }), { cal: 0, p: 0, c: 0, f: 0, w: 0 });
 
     const totalMass = stats.p + stats.c + stats.f;
@@ -153,7 +198,6 @@ const App = () => {
       }
     };
 
-    // Filter out items that are strictly water for the advice logic
     const foodItems = items.filter(item => (item.stats?.cal || 0) > 0 || (item.stats?.p || 0) > 0);
     if (foodItems.length === 0) return patterns.default;
 
